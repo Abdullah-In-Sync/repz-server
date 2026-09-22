@@ -5,7 +5,8 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.redis import json_cache_set
 from app.models.exercise import Exercise, ExerciseSource
-from app.utils.media import gif_path, public_gif_url, save_gif_and_thumb
+from app.schemas.exercise import as_str_list
+from app.utils.media import public_gif_url
 from app.utils.training import classify_exercise
 
 logger = get_logger(__name__)
@@ -26,8 +27,8 @@ def map_workoutx_exercise(raw: dict, gif_url: str | None) -> dict:
         "body_part": raw.get("bodyPart"),
         "target": raw.get("target"),
         "equipment": equipment,
-        "secondary_muscles": raw.get("secondaryMuscles"),
-        "instructions": raw.get("instructions"),
+        "secondary_muscles": as_str_list(raw.get("secondaryMuscles")),
+        "instructions": as_str_list(raw.get("instructions")),
         "gif_url": gif_url,
         "category": raw.get("category"),
         "difficulty": raw.get("difficulty"),
@@ -38,24 +39,19 @@ def map_workoutx_exercise(raw: dict, gif_url: str | None) -> dict:
         "is_unilateral": bool(raw.get("isUnilateral") or False),
         "recommended_sets": str(recommended_sets) if recommended_sets is not None else None,
         "recommended_reps": str(recommended_reps) if recommended_reps is not None else None,
-        "movement_tags": raw.get("movement_tags") or raw.get("movementTags"),
+        "movement_tags": as_str_list(raw.get("movement_tags") or raw.get("movementTags")),
         "description": raw.get("description"),
         "is_time_based": is_time,
         "is_distance_based": is_distance,
     }
 
 
-async def download_gif(client, raw: dict) -> str | None:
-    external_id = str(raw["id"])
-    remote = raw.get("gifUrl")
-    existing = gif_path(external_id)
-    if existing.exists():
-        return public_gif_url(external_id)
-    if not remote:
-        return None
-    response = await client.get(remote)
-    response.raise_for_status()
-    return save_gif_and_thumb(external_id, response.content)
+def _items_from_payload(payload: object) -> list:
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        return payload.get("data") or payload.get("items") or []
+    return []
 
 
 async def sync_exercises(db: AsyncSession) -> dict:
@@ -67,60 +63,39 @@ async def sync_exercises(db: AsyncSession) -> dict:
     from tenacity import retry, stop_after_attempt, wait_exponential
 
     headers = {"X-WorkoutX-Key": settings.workoutx_api_key}
-    upserted = 0
-    offset = 0
-    limit = 100
-    total = None
 
-    @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=1, max=20))
-    async def fetch_page(client: httpx.AsyncClient, page_offset: int) -> dict:
+    @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=30))
+    async def fetch_catalog(client: httpx.AsyncClient) -> list:
         response = await client.get(
             f"{settings.workoutx_base_url.rstrip('/')}/v1/exercises",
-            params={"limit": limit, "offset": page_offset},
             headers=headers,
-            timeout=30.0,
+            timeout=120.0,
         )
         response.raise_for_status()
-        payload = response.json()
-        if isinstance(payload, list):
-            return {"total": len(payload), "count": len(payload), "data": payload}
-        return payload
+        return _items_from_payload(response.json())
 
+    upserted = 0
     async with httpx.AsyncClient() as client:
-        while True:
-            page = await fetch_page(client, offset)
-            items = page.get("data") or []
-            total = page.get("total") if total is None else total
-            if not items:
-                break
-            for raw in items:
-                gif_url = None
-                try:
-                    gif_url = await download_gif(client, raw)
-                except Exception as exc:
-                    logger.warning("gif_download_failed", exercise_id=raw.get("id"), error=str(exc))
-                    gif_url = raw.get("gifUrl")
-                mapped = map_workoutx_exercise(raw, gif_url)
-                result = await db.execute(
-                    select(Exercise).where(Exercise.external_id == mapped["external_id"])
-                )
-                existing = result.scalar_one_or_none()
-                if existing:
-                    for key, value in mapped.items():
-                        setattr(existing, key, value)
-                else:
-                    db.add(Exercise(**mapped))
-                upserted += 1
-            await db.commit()
-            offset += len(items)
-            if total is not None and offset >= int(total):
-                break
-            if len(items) < limit:
-                break
+        items = await fetch_catalog(client)
+        for raw in items:
+            if not raw.get("id"):
+                continue
+            mapped = map_workoutx_exercise(raw, public_gif_url(str(raw["id"])))
+            result = await db.execute(
+                select(Exercise).where(Exercise.external_id == mapped["external_id"])
+            )
+            existing = result.scalar_one_or_none()
+            if existing:
+                for key, value in mapped.items():
+                    setattr(existing, key, value)
+            else:
+                db.add(Exercise(**mapped))
+            upserted += 1
+        await db.commit()
 
     from app.services.exercise_service import distinct_filters
 
     filters = await distinct_filters(db)
     await json_cache_set("exercises:filters", filters, FILTERS_TTL)
-    logger.info("workoutx_sync_complete", upserted=upserted, total=total)
-    return {"upserted": upserted, "total": total}
+    logger.info("workoutx_sync_complete", upserted=upserted, total=len(items))
+    return {"upserted": upserted, "total": len(items)}

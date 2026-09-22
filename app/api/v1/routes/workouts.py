@@ -40,7 +40,7 @@ async def history(
 ):
     limit, offset = pagination
     items, total = await list_workouts(db, user, limit=limit, offset=offset, start=start, end=end)
-    return PaginatedResponse(items=items, total=total, limit=limit, offset=offset)
+    return PaginatedResponse[WorkoutRead](items=items, total=total, limit=limit, offset=offset)
 
 
 @router.get("/{workout_id}", response_model=WorkoutRead)

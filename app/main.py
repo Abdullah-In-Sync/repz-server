@@ -2,8 +2,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import sentry_sdk
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
@@ -56,6 +57,20 @@ if settings.rate_limit_enabled and not settings.is_test:
     rate_limit = [Depends(RateLimiter(times=120, seconds=60))]
 
 app.include_router(api_router, prefix="/api/v1", dependencies=rate_limit)
+
+
+@app.get("/media/gifs/{filename}")
+async def serve_exercise_gif(filename: str):
+    from app.utils.media import ensure_local_gif, normalize_gif_id
+
+    external_id = normalize_gif_id(filename)
+    if not external_id:
+        raise HTTPException(status_code=404, detail="Not found")
+    path = await ensure_local_gif(external_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="GIF not available")
+    return FileResponse(path, media_type="image/gif")
+
 
 media_root = Path(settings.media_root)
 media_root.mkdir(parents=True, exist_ok=True)

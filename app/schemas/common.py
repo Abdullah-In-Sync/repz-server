@@ -1,5 +1,3 @@
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 
@@ -9,7 +7,7 @@ class PaginationParams(BaseModel):
 
 
 class PaginatedResponse[T](BaseModel):
-    items: list[T] | list[Any]
+    items: list[T]
     total: int
     limit: int
     offset: int

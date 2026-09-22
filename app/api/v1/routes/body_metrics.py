@@ -14,7 +14,7 @@ async def list_metrics(
 ):
     limit, offset = pagination
     items, total = await metrics_service.list_body_metrics(db, user, limit, offset)
-    return PaginatedResponse(items=items, total=total, limit=limit, offset=offset)
+    return PaginatedResponse[BodyMetricRead](items=items, total=total, limit=limit, offset=offset)
 
 
 @router.post("", response_model=BodyMetricRead, status_code=status.HTTP_201_CREATED)

@@ -11,7 +11,10 @@ logger = get_logger(__name__)
 
 async def _run() -> None:
     async with SessionLocal() as db:
-        await sync_exercises(db)
+        try:
+            await sync_exercises(db)
+        except Exception as exc:
+            logger.exception("exercise_sync_failed", error=str(exc))
 
 
 @router.post("/sync-exercises")

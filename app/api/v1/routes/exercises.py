@@ -30,7 +30,7 @@ async def list_exercises(
         limit=limit,
         offset=offset,
     )
-    return PaginatedResponse(
+    return PaginatedResponse[ExerciseRead](
         items=items, total=total, limit=limit, offset=offset
     )
 
@@ -39,7 +39,10 @@ async def list_exercises(
 async def filters(db: DbDep, user: CurrentUser) -> ExerciseFilters:
     cached = await json_cache_get("exercises:filters")
     if cached:
-        return ExerciseFilters(**cached)
+        try:
+            return ExerciseFilters(**cached)
+        except Exception:
+            pass
     data = await exercise_service.distinct_filters(db)
     await json_cache_set("exercises:filters", data, 60 * 60 * 24)
     return ExerciseFilters(**data)

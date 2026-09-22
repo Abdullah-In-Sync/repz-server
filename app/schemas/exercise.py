@@ -1,8 +1,22 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.models.exercise import ExerciseSource
+from app.utils.media import public_gif_url
+
+
+def as_str_list(value) -> list | None:
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        return [value] if value else None
+    if isinstance(value, dict):
+        items = [str(item) for item in value.values() if item is not None]
+        return items or None
+    return None
 
 
 class ExerciseCreateCustom(BaseModel):
@@ -52,6 +66,17 @@ class ExerciseRead(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("secondary_muscles", "instructions", "movement_tags", mode="before")
+    @classmethod
+    def coerce_optional_lists(cls, value):
+        return as_str_list(value)
+
+    @model_validator(mode="after")
+    def local_gif_url(self):
+        if self.external_id:
+            self.gif_url = public_gif_url(self.external_id)
+        return self
 
 
 class ExerciseFilters(BaseModel):
