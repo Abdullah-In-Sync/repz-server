@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -31,14 +31,24 @@ async def get_routine(db: AsyncSession, user: User, routine_id: str) -> Routine 
 
 
 async def _replace_exercises(db: AsyncSession, routine: Routine, items) -> None:
-    routine.exercises.clear()
-    await db.flush()
+    """Replace all routine_exercises rows without touching the ORM relationship.
+
+    Touching `routine.exercises` (via .clear() or .append()) triggers a lazy load
+    in async context, which raises MissingGreenlet. So we do direct SQL instead.
+    """
+    # Delete existing rows for this routine
+    await db.execute(
+        delete(RoutineExercise).where(RoutineExercise.routine_id == routine.id)
+    )
+
+    # Insert new rows
     for item in items:
         exercise = await db.get(Exercise, item.exercise_id)
         if not exercise:
             raise ValueError(f"Unknown exercise {item.exercise_id}")
-        routine.exercises.append(
+        db.add(
             RoutineExercise(
+                routine_id=routine.id,
                 exercise_id=item.exercise_id,
                 order_index=item.order_index,
                 target_sets=item.target_sets,
@@ -47,6 +57,8 @@ async def _replace_exercises(db: AsyncSession, routine: Routine, items) -> None:
                 notes=item.notes,
             )
         )
+
+    await db.flush()
 
 
 async def create_routine(db: AsyncSession, user: User, payload: RoutineCreate) -> Routine:
