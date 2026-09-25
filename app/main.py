@@ -2,9 +2,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import sentry_sdk
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
@@ -43,6 +43,24 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    import traceback
+    traceback.print_exc()
+    logger.error(
+        "unhandled_exception",
+        path=str(request.url),
+        method=request.method,
+        error=str(exc),
+        error_type=type(exc).__name__,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"{type(exc).__name__}: {exc}"},
+    )
+
 
 app.add_middleware(
     CORSMiddleware,
