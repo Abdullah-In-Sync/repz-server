@@ -27,6 +27,7 @@ class Routine(Base):
         back_populates="routine",
         cascade="all, delete-orphan",
         order_by="RoutineExercise.order_index",
+        lazy="selectin",
     )
 
 
