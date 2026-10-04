@@ -53,6 +53,8 @@ async def _replace_exercises(db: AsyncSession, routine: Routine, items) -> None:
                 order_index=item.order_index,
                 target_sets=item.target_sets,
                 target_reps_range=item.target_reps_range,
+                target_duration_seconds=item.target_duration_seconds,
+                target_distance_km=item.target_distance_km,
                 rest_seconds=item.rest_seconds,
                 notes=item.notes,
             )

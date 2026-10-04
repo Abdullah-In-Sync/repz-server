@@ -8,6 +8,8 @@ class RoutineExerciseIn(BaseModel):
     order_index: int = 0
     target_sets: int | None = Field(default=None, ge=1, le=50)
     target_reps_range: str | None = None
+    target_duration_seconds: int | None = Field(default=None, ge=0, le=86400)
+    target_distance_km: float | None = Field(default=None, ge=0, le=500)
     rest_seconds: int | None = Field(default=None, ge=0, le=600)
     notes: str | None = None
 
