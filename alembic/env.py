@@ -11,7 +11,9 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-sync_url = settings.database_url.replace("mysql+asyncmy://", "mysql+pymysql://")
+sync_url = settings.sqlalchemy_database_url.replace(
+    "postgresql+asyncpg://", "postgresql+psycopg2://"
+)
 config.set_main_option("sqlalchemy.url", sync_url)
 target_metadata = Base.metadata
 

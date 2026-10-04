@@ -37,7 +37,7 @@ def upgrade() -> None:
     op.create_table(
         "exercises",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("source", sa.Enum("workoutx", "custom", name="exercisesource"), nullable=False),
+        sa.Column("source", sa.Enum("catalog", "custom", name="exercisesource"), nullable=False),
         sa.Column("external_id", sa.String(64), nullable=True),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("body_part", sa.String(128), nullable=True),
@@ -59,6 +59,8 @@ def upgrade() -> None:
         sa.Column("created_by_user_id", sa.String(36), sa.ForeignKey("users.id"), nullable=True),
         sa.Column("is_time_based", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("is_distance_based", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("is_load_based", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("is_reps_based", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
@@ -67,7 +69,7 @@ def upgrade() -> None:
     op.create_index("ix_exercises_body_part", "exercises", ["body_part"])
     op.create_index("ix_exercises_target", "exercises", ["target"])
     op.create_index("ix_exercises_equipment", "exercises", ["equipment"])
-    op.create_index("ix_exercises_name_ft", "exercises", ["name"], mysql_prefix="FULLTEXT")
+    op.create_index("ix_exercises_name", "exercises", ["name"])
 
     op.create_table(
         "routines",

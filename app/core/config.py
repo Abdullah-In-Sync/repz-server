@@ -10,18 +10,18 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = True
 
-    mysql_host: str = "localhost"
-    mysql_port: int = 3306
-    mysql_user: str = "repz"
-    mysql_password: str = "repz"
-    mysql_database: str = "repz"
+    postgres_host: str = "localhost"
+    postgres_port: int = 5432
+    postgres_user: str = "repz"
+    postgres_password: str = "repz"
+    postgres_database: str = "repz"
+    database_url: str = ""
 
     redis_url: str = "redis://localhost:6379/0"
 
     firebase_credentials_path: str = "./repz-5e06b-firebase-adminsdk-fbsvc-a84a929fb9.json"
 
-    workoutx_api_key: str = ""
-    workoutx_base_url: str = "https://api.workoutxapp.com"
+    exercises_json_path: str = "./exercises.json"
 
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
 
@@ -33,10 +33,12 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
 
     @property
-    def database_url(self) -> str:
+    def sqlalchemy_database_url(self) -> str:
+        if self.database_url.strip():
+            return self.database_url.strip()
         return (
-            f"mysql+asyncmy://{self.mysql_user}:{self.mysql_password}"
-            f"@{self.mysql_host}:{self.mysql_port}/{self.mysql_database}"
+            f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
+            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_database}"
         )
 
     @property

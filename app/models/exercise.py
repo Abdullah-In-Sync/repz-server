@@ -9,7 +9,7 @@ from app.db.base import Base
 
 
 class ExerciseSource(StrEnum):
-    WORKOUTX = "workoutx"
+    CATALOG = "catalog"
     CUSTOM = "custom"
 
 
@@ -19,13 +19,13 @@ class Exercise(Base):
         Index("ix_exercises_body_part", "body_part"),
         Index("ix_exercises_target", "target"),
         Index("ix_exercises_equipment", "equipment"),
-        Index("ix_exercises_name_ft", "name", mysql_prefix="FULLTEXT"),
+        Index("ix_exercises_name", "name"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     source: Mapped[ExerciseSource] = mapped_column(
         Enum(ExerciseSource, values_callable=lambda objs: [item.value for item in objs]),
-        default=ExerciseSource.WORKOUTX,
+        default=ExerciseSource.CATALOG,
     )
     external_id: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     name: Mapped[str] = mapped_column(String(255))
@@ -50,6 +50,8 @@ class Exercise(Base):
     )
     is_time_based: Mapped[bool] = mapped_column(Boolean, default=False)
     is_distance_based: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_load_based: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_reps_based: Mapped[bool] = mapped_column(Boolean, default=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
