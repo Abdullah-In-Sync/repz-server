@@ -23,7 +23,10 @@ class Settings(BaseSettings):
 
     exercises_json_path: str = "./exercises.json"
 
-    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    cors_origins: str = (
+        "http://localhost:3000,http://localhost:5173,"
+        "http://127.0.0.1:3000,http://127.0.0.1:5173"
+    )
 
     media_root: str = "./media"
     public_base_url: str = "http://localhost:8000"

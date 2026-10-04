@@ -60,6 +60,7 @@ class RoutineRead(BaseModel):
 class LastLoggedSet(BaseModel):
     exercise_id: str
     exercise_name: str
+    set_number: int | None = None
     weight_kg: float | None
     reps: int | None
     rpe: float | None

@@ -64,7 +64,8 @@ async def create_workout(db: AsyncSession, user: User, payload: WorkoutCreate) -
     db.add(session)
     await db.commit()
     await db.refresh(session)
-    return session
+    loaded = await _load_session(db, user, session.id)
+    return loaded if loaded else session
 
 
 async def list_workouts(
