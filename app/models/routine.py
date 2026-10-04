@@ -42,6 +42,7 @@ class RoutineExercise(Base):
     target_reps_range: Mapped[str | None] = mapped_column(String(64), nullable=True)
     target_duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     target_distance_km: Mapped[float | None] = mapped_column(Float, nullable=True)
+    target_weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     rest_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 

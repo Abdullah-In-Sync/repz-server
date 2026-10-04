@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.models.exercise import ExerciseSource
-from app.utils.media import public_gif_url, resolve_local_gif
+from app.utils.media import is_legacy_remote_gif, public_gif_url, resolve_local_gif
 
 
 def as_str_list(value) -> list | None:
@@ -101,12 +101,12 @@ class ExerciseRead(BaseModel):
 
     @model_validator(mode="after")
     def resolve_gif_url(self):
-        if self.gif_url:
-            return self
         for key in (self.external_id, self.id):
             if key and resolve_local_gif(str(key)):
                 self.gif_url = public_gif_url(str(key))
-                break
+                return self
+        if is_legacy_remote_gif(self.gif_url):
+            self.gif_url = None
         return self
 
 

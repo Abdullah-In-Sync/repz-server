@@ -26,6 +26,14 @@ def public_gif_url(file_key: str) -> str:
     return f"{get_settings().public_base_url.rstrip('/')}/media/gifs/{file_key}.gif"
 
 
+def is_legacy_remote_gif(url: str | None) -> bool:
+    """True for deprecated third-party GIF hosts we no longer use."""
+    if not url or not url.strip():
+        return False
+    lowered = url.strip().lower()
+    return "workoutxapp.com" in lowered or "api.workoutx" in lowered
+
+
 def save_gif_and_thumb(file_key: str, content: bytes) -> str:
     dest = gif_path(file_key)
     dest.write_bytes(content)

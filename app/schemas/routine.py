@@ -10,6 +10,7 @@ class RoutineExerciseIn(BaseModel):
     target_reps_range: str | None = None
     target_duration_seconds: int | None = Field(default=None, ge=0, le=86400)
     target_distance_km: float | None = Field(default=None, ge=0, le=500)
+    target_weight_kg: float | None = Field(default=None, ge=0, le=500)
     rest_seconds: int | None = Field(default=None, ge=0, le=600)
     notes: str | None = None
 

@@ -55,6 +55,7 @@ async def _replace_exercises(db: AsyncSession, routine: Routine, items) -> None:
                 target_reps_range=item.target_reps_range,
                 target_duration_seconds=item.target_duration_seconds,
                 target_distance_km=item.target_distance_km,
+                target_weight_kg=item.target_weight_kg,
                 rest_seconds=item.rest_seconds,
                 notes=item.notes,
             )

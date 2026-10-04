@@ -84,6 +84,20 @@ curl -X POST "http://localhost:8000/api/v1/admin/seed-exercises" \
 
 Re-run seed after updating `exercises.json`; rows upsert on `external_id`. Existing `gif_url` values (and on-disk GIFs) are preserved on re-seed.
 
+### Exercise GIFs (local exercises-dataset)
+
+Animation GIFs can be copied from a clone of [exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset) (Gym visual media — see that repo’s `NOTICE.md`).
+
+Repz `id` matches dataset `id` for **1,324** catalog rows. Import by id with a name sanity check; row `3533` is skipped (known id/name mismatch). Three Repz-only ids (`5202`–`5204`) have no dataset GIF.
+
+```bash
+# Clone alongside repz-server, e.g. Desktop/exercises-dataset
+python scripts/import_dataset_gifs.py --dataset-root ../exercises-dataset
+python scripts/import_dataset_gifs.py --dataset-root ../exercises-dataset --update-db
+```
+
+Use `--dry-run` to preview. If GIFs still look like old WorkoutX art, files were skipped on disk — re-run with **`--force`** to replace them from the dataset. Attribution notice is copied to `MEDIA_ROOT/GYM_VISUAL_NOTICE.md`.
+
 ## Auth
 
 The Nuxt app authenticates with Firebase, then sends `Authorization: Bearer <Firebase ID token>` on every `/api/v1` request.

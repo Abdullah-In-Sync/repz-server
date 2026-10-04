@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logging import get_logger
 from app.models.exercise import Exercise, ExerciseSource
 from app.schemas.exercise import as_str_list
-from app.utils.media import resolve_local_gif, save_gif_and_thumb
+from app.utils.media import is_legacy_remote_gif, resolve_local_gif, save_gif_and_thumb
 
 logger = get_logger(__name__)
 
@@ -57,6 +57,8 @@ def map_json_exercise(raw: dict) -> dict:
 
 def _preserve_gif_url(exercise: Exercise, external_id: str) -> bool:
     if exercise.gif_url and exercise.gif_url.strip():
+        if is_legacy_remote_gif(exercise.gif_url):
+            return False
         return True
     return resolve_local_gif(external_id) is not None
 
