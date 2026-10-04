@@ -3,6 +3,12 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
+class RoutineSetTarget(BaseModel):
+    reps_range: str | None = None
+    weight_kg: float | None = Field(default=None, ge=0, le=500)
+    rest_seconds: int | None = Field(default=None, ge=0, le=600)
+
+
 class RoutineExerciseIn(BaseModel):
     exercise_id: str
     order_index: int = 0
@@ -13,6 +19,7 @@ class RoutineExerciseIn(BaseModel):
     target_weight_kg: float | None = Field(default=None, ge=0, le=500)
     rest_seconds: int | None = Field(default=None, ge=0, le=600)
     notes: str | None = None
+    set_targets: list[RoutineSetTarget] | None = Field(default=None, max_length=50)
 
 
 class RoutineExerciseRead(RoutineExerciseIn):

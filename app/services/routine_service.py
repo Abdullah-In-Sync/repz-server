@@ -58,6 +58,11 @@ async def _replace_exercises(db: AsyncSession, routine: Routine, items) -> None:
                 target_weight_kg=item.target_weight_kg,
                 rest_seconds=item.rest_seconds,
                 notes=item.notes,
+                set_targets=(
+                    [target.model_dump() for target in item.set_targets]
+                    if item.set_targets is not None
+                    else None
+                ),
             )
         )
 

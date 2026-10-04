@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -45,6 +45,7 @@ class RoutineExercise(Base):
     target_weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     rest_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    set_targets: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
 
     routine = relationship("Routine", back_populates="exercises")
     exercise = relationship("Exercise")

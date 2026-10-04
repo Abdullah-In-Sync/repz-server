@@ -26,8 +26,12 @@ def _to_read(routine) -> RoutineRead:
                 order_index=item.order_index,
                 target_sets=item.target_sets,
                 target_reps_range=item.target_reps_range,
+                target_duration_seconds=item.target_duration_seconds,
+                target_distance_km=item.target_distance_km,
+                target_weight_kg=item.target_weight_kg,
                 rest_seconds=item.rest_seconds,
                 notes=item.notes,
+                set_targets=item.set_targets,
                 exercise_name=item.exercise.name if item.exercise else None,
             )
             for item in routine.exercises
