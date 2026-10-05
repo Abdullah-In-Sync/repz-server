@@ -2,9 +2,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import sentry_sdk
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
@@ -44,12 +44,31 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    import traceback
+    traceback.print_exc()
+    logger.error(
+        "unhandled_exception",
+        path=str(request.url),
+        method=request.method,
+        error=str(exc),
+        error_type=type(exc).__name__,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"{type(exc).__name__}: {exc}"},
+    )
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_private_network=True,
 )
 
 rate_limit = []
@@ -61,12 +80,12 @@ app.include_router(api_router, prefix="/api/v1", dependencies=rate_limit)
 
 @app.get("/media/gifs/{filename}")
 async def serve_exercise_gif(filename: str):
-    from app.utils.media import ensure_local_gif, normalize_gif_id
+    from app.utils.media import normalize_gif_id, resolve_local_gif
 
-    external_id = normalize_gif_id(filename)
-    if not external_id:
+    file_key = normalize_gif_id(filename)
+    if not file_key:
         raise HTTPException(status_code=404, detail="Not found")
-    path = await ensure_local_gif(external_id)
+    path = resolve_local_gif(file_key)
     if not path:
         raise HTTPException(status_code=404, detail="GIF not available")
     return FileResponse(path, media_type="image/gif")

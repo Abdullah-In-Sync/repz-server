@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Query, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -11,14 +12,20 @@ from app.services.user_service import get_or_create_user
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 
+bearer_scheme = HTTPBearer(auto_error=False)
+
 
 async def get_current_user(
     db: DbDep,
-    authorization: Annotated[str | None, Header()] = None,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)] = None,
 ) -> User:
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
-    token = authorization.split(" ", 1)[1].strip()
+    if credentials is None or not credentials.credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    token = credentials.credentials.strip()
     try:
         decoded = verify_firebase_token(token)
     except AuthError as exc:

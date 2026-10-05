@@ -1,18 +1,16 @@
 services:
-  mysql:
-    image: mysql:8.0
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+  postgres:
+    image: postgres:16-alpine
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-repz}
-      MYSQL_USER: ${MYSQL_USER:-repz}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-repz}
+      POSTGRES_DB: ${POSTGRES_DATABASE:-repz}
+      POSTGRES_USER: ${POSTGRES_USER:-repz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-repz}
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-repz} -d ${POSTGRES_DATABASE:-repz}"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -34,20 +32,21 @@ services:
     env_file:
       - .env
     environment:
-      MYSQL_HOST: mysql
+      POSTGRES_HOST: postgres
       REDIS_URL: redis://redis:6379/0
       MEDIA_ROOT: /data/media
       PUBLIC_BASE_URL: http://localhost:8000
+      EXERCISES_JSON_PATH: /app/exercises.json
     volumes:
       - .:/app
       - media_data:/data/media
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 volumes:
-  mysql_data:
+  postgres_data:
   media_data:

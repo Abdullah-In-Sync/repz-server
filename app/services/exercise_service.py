@@ -1,9 +1,11 @@
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.redis import cache_delete
 from app.models.exercise import Exercise, ExerciseSource
 from app.models.user import User
-from app.schemas.exercise import ExerciseCreateCustom
+from app.schemas.exercise import ExerciseCreateCustom, ExerciseUpdate
 
 
 async def list_exercises(
@@ -19,7 +21,7 @@ async def list_exercises(
 ) -> tuple[list[Exercise], int]:
     filters = [
         or_(
-            Exercise.source == ExerciseSource.WORKOUTX,
+            Exercise.source == ExerciseSource.CATALOG,
             Exercise.created_by_user_id == user.id,
         )
     ]
@@ -50,6 +52,12 @@ async def get_exercise(db: AsyncSession, user: User, exercise_id: str) -> Exerci
     return exercise
 
 
+def _can_mutate(user: User, exercise: Exercise) -> bool:
+    if exercise.source == ExerciseSource.CATALOG:
+        return True
+    return exercise.created_by_user_id == user.id
+
+
 async def create_custom_exercise(
     db: AsyncSession, user: User, payload: ExerciseCreateCustom
 ) -> Exercise:
@@ -61,7 +69,33 @@ async def create_custom_exercise(
     db.add(exercise)
     await db.commit()
     await db.refresh(exercise)
+    await cache_delete("exercises:filters")
     return exercise
+
+
+async def update_exercise(
+    db: AsyncSession, user: User, exercise: Exercise, payload: ExerciseUpdate
+) -> Exercise:
+    if not _can_mutate(user, exercise):
+        raise PermissionError("Not allowed to edit this exercise")
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(exercise, key, value)
+    await db.commit()
+    await db.refresh(exercise)
+    await cache_delete("exercises:filters")
+    return exercise
+
+
+async def delete_exercise(db: AsyncSession, user: User, exercise: Exercise) -> None:
+    if not _can_mutate(user, exercise):
+        raise PermissionError("Not allowed to delete this exercise")
+    try:
+        db.delete(exercise)
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise ValueError("Exercise is referenced by routines or workouts") from exc
+    await cache_delete("exercises:filters")
 
 
 async def distinct_filters(db: AsyncSession) -> dict[str, list[str]]:

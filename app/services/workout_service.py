@@ -64,7 +64,8 @@ async def create_workout(db: AsyncSession, user: User, payload: WorkoutCreate) -
     db.add(session)
     await db.commit()
     await db.refresh(session)
-    return session
+    loaded = await _load_session(db, user, session.id)
+    return loaded if loaded else session
 
 
 async def list_workouts(
@@ -125,6 +126,10 @@ async def _validate_set_fields(exercise: Exercise, payload: SetCreate | SetUpdat
             raise WorkoutValidationError("duration_seconds is only valid for time-based exercises")
         if not exercise.is_distance_based and payload.distance_km:
             raise WorkoutValidationError("distance_km is only valid for distance-based exercises")
+        if not exercise.is_load_based and payload.weight_kg:
+            raise WorkoutValidationError("weight_kg is only valid for load-based exercises")
+        if not exercise.is_reps_based and payload.reps is not None:
+            raise WorkoutValidationError("reps is only valid for rep-based exercises")
 
 
 async def add_set(

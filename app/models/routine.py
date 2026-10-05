@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -27,6 +27,7 @@ class Routine(Base):
         back_populates="routine",
         cascade="all, delete-orphan",
         order_by="RoutineExercise.order_index",
+        lazy="selectin",
     )
 
 
@@ -39,8 +40,12 @@ class RoutineExercise(Base):
     order_index: Mapped[int] = mapped_column(Integer, default=0)
     target_sets: Mapped[int | None] = mapped_column(Integer, nullable=True)
     target_reps_range: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    target_duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    target_distance_km: Mapped[float | None] = mapped_column(Float, nullable=True)
+    target_weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     rest_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    set_targets: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
 
     routine = relationship("Routine", back_populates="exercises")
     exercise = relationship("Exercise")

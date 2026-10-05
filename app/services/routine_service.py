@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -31,22 +31,42 @@ async def get_routine(db: AsyncSession, user: User, routine_id: str) -> Routine 
 
 
 async def _replace_exercises(db: AsyncSession, routine: Routine, items) -> None:
-    routine.exercises.clear()
-    await db.flush()
+    """Replace all routine_exercises rows without touching the ORM relationship.
+
+    Touching `routine.exercises` (via .clear() or .append()) triggers a lazy load
+    in async context, which raises MissingGreenlet. So we do direct SQL instead.
+    """
+    # Delete existing rows for this routine
+    await db.execute(
+        delete(RoutineExercise).where(RoutineExercise.routine_id == routine.id)
+    )
+
+    # Insert new rows
     for item in items:
         exercise = await db.get(Exercise, item.exercise_id)
         if not exercise:
             raise ValueError(f"Unknown exercise {item.exercise_id}")
-        routine.exercises.append(
+        db.add(
             RoutineExercise(
+                routine_id=routine.id,
                 exercise_id=item.exercise_id,
                 order_index=item.order_index,
                 target_sets=item.target_sets,
                 target_reps_range=item.target_reps_range,
+                target_duration_seconds=item.target_duration_seconds,
+                target_distance_km=item.target_distance_km,
+                target_weight_kg=item.target_weight_kg,
                 rest_seconds=item.rest_seconds,
                 notes=item.notes,
+                set_targets=(
+                    [target.model_dump() for target in item.set_targets]
+                    if item.set_targets is not None
+                    else None
+                ),
             )
         )
+
+    await db.flush()
 
 
 async def create_routine(db: AsyncSession, user: User, payload: RoutineCreate) -> Routine:
@@ -82,30 +102,45 @@ async def delete_routine(db: AsyncSession, routine: Routine) -> None:
 
 
 async def last_logged(db: AsyncSession, user: User, routine: Routine) -> list[dict]:
-    rows = []
-    for item in routine.exercises:
-        result = await db.execute(
-            select(WorkoutSet)
-            .join(WorkoutSession, WorkoutSet.workout_session_id == WorkoutSession.id)
-            .where(
-                WorkoutSet.exercise_id == item.exercise_id,
-                WorkoutSet.is_completed.is_(True),
-                WorkoutSession.user_id == user.id,
-            )
-            .order_by(WorkoutSet.created_at.desc())
-            .limit(1)
+    name_by_id = {
+        item.exercise_id: (item.exercise.name if item.exercise else item.exercise_id)
+        for item in routine.exercises
+    }
+    session_result = await db.execute(
+        select(WorkoutSession)
+        .where(
+            WorkoutSession.user_id == user.id,
+            WorkoutSession.routine_id == routine.id,
+            WorkoutSession.ended_at.isnot(None),
         )
-        logged = result.scalar_one_or_none()
+        .order_by(WorkoutSession.ended_at.desc())
+        .limit(1)
+    )
+    last_session = session_result.scalar_one_or_none()
+    if not last_session:
+        return []
+
+    sets_result = await db.execute(
+        select(WorkoutSet)
+        .where(
+            WorkoutSet.workout_session_id == last_session.id,
+            WorkoutSet.is_completed.is_(True),
+        )
+        .order_by(WorkoutSet.exercise_id, WorkoutSet.set_number)
+    )
+    rows = []
+    for logged in sets_result.scalars().all():
         rows.append(
             {
-                "exercise_id": item.exercise_id,
-                "exercise_name": item.exercise.name if item.exercise else None,
-                "weight_kg": logged.weight_kg if logged else None,
-                "reps": logged.reps if logged else None,
-                "rpe": logged.rpe if logged else None,
-                "duration_seconds": logged.duration_seconds if logged else None,
-                "distance_km": logged.distance_km if logged else None,
-                "logged_at": logged.created_at if logged else None,
+                "exercise_id": logged.exercise_id,
+                "exercise_name": name_by_id.get(logged.exercise_id, logged.exercise_id),
+                "set_number": logged.set_number,
+                "weight_kg": logged.weight_kg,
+                "reps": logged.reps,
+                "rpe": logged.rpe,
+                "duration_seconds": logged.duration_seconds,
+                "distance_km": logged.distance_km,
+                "logged_at": logged.created_at,
             }
         )
     return rows
