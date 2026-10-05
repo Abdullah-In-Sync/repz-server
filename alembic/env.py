@@ -1,8 +1,8 @@
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from alembic import context
 from app.core.config import settings
 from app.db.base import Base
 from app.models import *  # noqa: F403
@@ -11,10 +11,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-sync_url = settings.sqlalchemy_database_url.replace(
-    "postgresql+asyncpg://", "postgresql+psycopg2://"
-)
-config.set_main_option("sqlalchemy.url", sync_url)
+# ConfigParser treats % as interpolation. Neon passwords are percent-encoded.
+config.set_main_option("sqlalchemy.url", settings.alembic_database_url.replace("%", "%%"))
 target_metadata = Base.metadata
 
 

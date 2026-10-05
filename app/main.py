@@ -58,18 +58,21 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
     )
     return JSONResponse(
         status_code=500,
-        content={"detail": f"{type(exc).__name__}: {exc}"},
+        content={"detail": f"{type(exc).__name__}: {exc}" if settings.debug else "Internal server error"},
     )
 
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    allow_private_network=True,
-)
+_cors: dict = {
+    "allow_origins": settings.cors_origin_list,
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+    "allow_private_network": True,
+}
+if settings.cors_origin_regex.strip():
+    _cors["allow_origin_regex"] = settings.cors_origin_regex.strip()
+
+app.add_middleware(CORSMiddleware, **_cors)
 
 rate_limit = []
 if settings.rate_limit_enabled and not settings.is_test:

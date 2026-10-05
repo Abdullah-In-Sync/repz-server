@@ -50,20 +50,11 @@ Connection string (async SQLAlchemy):
 
 You can set `DATABASE_URL` in `.env` to override the `POSTGRES_*` fields.
 
-### Option C — Cloud Postgres (Neon)
+### Option C — Deployed app (Neon + Render + Vercel)
 
-Use managed Postgres for staging/production while keeping local Docker for day-to-day dev.
+Production uses Neon for Postgres, Render for this API, and Vercel for the Nuxt app. Paste the Neon connection string as `DATABASE_URL`; the API rewrites it for asyncpg and runs migrations against the direct host. Step-by-step: [DEPLOY.md](DEPLOY.md).
 
-1. Create a Neon project and copy the **pooled** connection string.
-2. Convert to async SQLAlchemy: `postgresql+asyncpg://...` and add `?sslmode=require` if needed.
-3. Set `DATABASE_URL` in the deployed API environment (and optionally a separate Neon branch for staging).
-4. Run migrations once against that database (`alembic upgrade head` or start the API so startup migrations run).
-5. Seed the catalog (see below) with the same `DATABASE_URL` in `.env`.
-6. Set `REDIS_URL` to [Upstash](https://upstash.com/) (or another managed Redis) in production.
-7. Set `PUBLIC_BASE_URL` to your real API URL (e.g. `https://api.example.com`) so uploaded GIF links work.
-8. Keep `MEDIA_ROOT` on persistent disk on the API host, or plan object storage later for GIF files.
-
-Local development stays on Docker Postgres; only production/staging env vars point at Neon.
+Local development stays on Docker Postgres. Only the deployed environment points at Neon.
 
 ## Exercise catalog (local JSON → DB)
 

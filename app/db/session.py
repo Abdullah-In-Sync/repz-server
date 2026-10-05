@@ -7,9 +7,11 @@ from app.core.config import settings
 engine = create_async_engine(
     settings.sqlalchemy_database_url,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=settings.db_pool_size,
+    max_overflow=settings.db_max_overflow,
+    pool_recycle=300,
     echo=settings.debug and not settings.is_test,
+    connect_args=settings.asyncpg_connect_args,
 )
 
 SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
