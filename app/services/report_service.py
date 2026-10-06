@@ -145,16 +145,26 @@ async def volume_graph(db: AsyncSession, user: User, range_value: str) -> list[d
     return points
 
 
-async def muscle_distribution(db: AsyncSession, user: User, range_value: str) -> list[dict]:
+def _range_bounds(range_value: str, *, end: date | None = None) -> tuple[date, date]:
     days = parse_range(range_value)
-    start_dt = datetime.combine(date.today() - timedelta(days=days - 1), datetime.min.time())
+    end_day = end or date.today()
+    start_day = end_day - timedelta(days=days - 1)
+    return start_day, end_day
+
+
+async def _muscle_volumes_between(
+    db: AsyncSession, user_id: str, start: date, end: date
+) -> dict[str, float]:
+    start_dt = datetime.combine(start, datetime.min.time())
+    end_dt = datetime.combine(end, datetime.max.time())
     result = await db.execute(
         select(WorkoutSet, Exercise)
         .join(Exercise, WorkoutSet.exercise_id == Exercise.id)
         .join(WorkoutSession, WorkoutSet.workout_session_id == WorkoutSession.id)
         .where(
-            WorkoutSession.user_id == user.id,
+            WorkoutSession.user_id == user_id,
             WorkoutSession.started_at >= start_dt,
+            WorkoutSession.started_at <= end_dt,
             WorkoutSet.is_completed.is_(True),
         )
     )
@@ -164,11 +174,52 @@ async def muscle_distribution(db: AsyncSession, user: User, range_value: str) ->
         volumes[part] = volumes.get(part, 0) + set_volume(
             workout_set.weight_kg, workout_set.reps, workout_set.is_warmup
         )
+    return volumes
+
+
+def _muscle_shares(volumes: dict[str, float]) -> list[dict]:
     total = sum(volumes.values()) or 1.0
     return [
         {"body_part": part, "volume": vol, "percent": round(100 * vol / total, 2)}
         for part, vol in sorted(volumes.items(), key=lambda item: item[1], reverse=True)
     ]
+
+
+async def muscle_distribution(db: AsyncSession, user: User, range_value: str) -> list[dict]:
+    start, end = _range_bounds(range_value)
+    volumes = await _muscle_volumes_between(db, user.id, start, end)
+    return _muscle_shares(volumes)
+
+
+def _period_summary(start: date, end: date, rows: list[DailyStat]) -> dict:
+    return {
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "total_volume": sum(r.total_volume for r in rows),
+        "total_sets": sum(r.total_sets for r in rows),
+        "duration_seconds": sum(r.duration_seconds for r in rows),
+        "workout_days": sum(1 for r in rows if r.total_sets > 0),
+    }
+
+
+async def muscle_distribution_detail(db: AsyncSession, user: User, range_value: str) -> dict:
+    days = parse_range(range_value)
+    current_start, current_end = _range_bounds(range_value)
+    previous_end = current_start - timedelta(days=1)
+    previous_start = previous_end - timedelta(days=days - 1)
+
+    current_volumes = await _muscle_volumes_between(db, user.id, current_start, current_end)
+    previous_volumes = await _muscle_volumes_between(db, user.id, previous_start, previous_end)
+    current_rows = await _daily_rows(db, user.id, current_start, current_end)
+    previous_rows = await _daily_rows(db, user.id, previous_start, previous_end)
+
+    return {
+        "range": range_value,
+        "current": _muscle_shares(current_volumes),
+        "previous": _muscle_shares(previous_volumes),
+        "current_summary": _period_summary(current_start, current_end, current_rows),
+        "previous_summary": _period_summary(previous_start, previous_end, previous_rows),
+    }
 
 
 async def list_achievements(db: AsyncSession, user: User) -> list[Achievement]:

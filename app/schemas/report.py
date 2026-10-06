@@ -43,6 +43,23 @@ class MuscleShare(BaseModel):
     percent: float
 
 
+class PeriodSummary(BaseModel):
+    start: date
+    end: date
+    total_volume: float
+    total_sets: int
+    duration_seconds: int
+    workout_days: int
+
+
+class MuscleDistributionDetail(BaseModel):
+    range: str
+    current: list[MuscleShare]
+    previous: list[MuscleShare]
+    current_summary: PeriodSummary
+    previous_summary: PeriodSummary
+
+
 class AchievementRead(BaseModel):
     id: str
     type: AchievementType
