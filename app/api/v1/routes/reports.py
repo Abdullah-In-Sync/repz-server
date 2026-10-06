@@ -6,7 +6,9 @@ from app.api.v1.deps import CurrentUser, DbDep
 from app.schemas.report import (
     AchievementRead,
     CalendarDay,
+    CalendarDetail,
     DailyReport,
+    MuscleDistributionDetail,
     MuscleShare,
     PersonalRecordRead,
     RangeReport,
@@ -49,6 +51,12 @@ async def calendar(db: DbDep, user: CurrentUser, month: str) -> list[CalendarDay
     return [CalendarDay(**row) for row in rows]
 
 
+@router.get("/calendar/detail", response_model=CalendarDetail)
+async def calendar_detail(db: DbDep, user: CurrentUser) -> CalendarDetail:
+    payload = await report_service.calendar_detail_report(db, user)
+    return CalendarDetail(**payload)
+
+
 @router.get("/volume-graph", response_model=list[VolumePoint])
 async def volume_graph(db: DbDep, user: CurrentUser, range: str = Query(default="30d")) -> list[VolumePoint]:
     try:
@@ -65,6 +73,17 @@ async def muscle(db: DbDep, user: CurrentUser, range: str = Query(default="30d")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return [MuscleShare(**row) for row in rows]
+
+
+@router.get("/muscle-distribution/detail", response_model=MuscleDistributionDetail)
+async def muscle_detail(
+    db: DbDep, user: CurrentUser, range: str = Query(default="30d")
+) -> MuscleDistributionDetail:
+    try:
+        payload = await report_service.muscle_distribution_detail(db, user, range)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return MuscleDistributionDetail(**payload)
 
 
 @router.get("/achievements", response_model=list[AchievementRead])
