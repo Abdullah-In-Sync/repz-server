@@ -11,6 +11,7 @@ from app.models.exercise import Exercise
 from app.models.metrics import DailyStat
 from app.models.user import User
 from app.models.workout import PersonalRecord, WorkoutSession, WorkoutSet
+from app.services.achievement_engine import current_streak
 from app.utils.training import parse_range, set_volume
 
 CACHE_TTL = 300
@@ -129,6 +130,95 @@ async def calendar_report(db: AsyncSession, user: User, month: str) -> list[dict
         )
         cursor += timedelta(days=1)
     return days
+
+
+def _iter_months(start: date, end: date) -> list[tuple[int, int]]:
+    months: list[tuple[int, int]] = []
+    year, month = start.year, start.month
+    while (year, month) <= (end.year, end.month):
+        months.append((year, month))
+        month += 1
+        if month > 12:
+            month = 1
+            year += 1
+    return months
+
+
+async def calendar_detail_report(db: AsyncSession, user: User) -> dict:
+    bounds = await db.execute(
+        select(
+            func.min(func.date(WorkoutSession.started_at)),
+            func.max(func.date(WorkoutSession.started_at)),
+        )
+        .select_from(WorkoutSession)
+        .join(WorkoutSet, WorkoutSet.workout_session_id == WorkoutSession.id)
+        .where(
+            WorkoutSession.user_id == user.id,
+            WorkoutSet.is_completed.is_(True),
+        )
+    )
+    first_day, last_day = bounds.one()
+    if not first_day or not last_day:
+        streak = await current_streak(db, user.id)
+        return {"months": [], "workout_streak_days": streak, "rest_days": 0}
+
+    sessions_result = await db.execute(
+        select(WorkoutSession)
+        .options(selectinload(WorkoutSession.sets), selectinload(WorkoutSession.routine))
+        .where(
+            WorkoutSession.user_id == user.id,
+            func.date(WorkoutSession.started_at) >= first_day,
+            func.date(WorkoutSession.started_at) <= last_day,
+        )
+        .order_by(WorkoutSession.started_at.asc())
+    )
+    sessions = list(sessions_result.scalars().all())
+
+    by_date: dict[date, list[dict]] = {}
+    workout_days: set[date] = set()
+    for session in sessions:
+        completed_sets = [item for item in session.sets if item.is_completed]
+        if not completed_sets:
+            continue
+        day = session.started_at.date()
+        workout_days.add(day)
+        display_name = (session.name or "").strip()
+        if not display_name and session.routine:
+            display_name = session.routine.name.strip()
+        if not display_name:
+            display_name = "Workout"
+        entry = {
+            "id": session.id,
+            "name": display_name,
+            "exercises": [],
+        }
+        by_date.setdefault(day, []).append(entry)
+
+    months_payload: list[dict] = []
+    for year, month_i in _iter_months(first_day.replace(day=1), last_day.replace(day=1)):
+        start, end = month_bounds(f"{year}-{month_i:02d}")
+        days = []
+        cursor = start
+        while cursor <= end:
+            day_workouts = by_date.get(cursor, [])
+            days.append(
+                {
+                    "date": cursor.isoformat(),
+                    "has_workout": cursor in workout_days,
+                    "workouts": day_workouts,
+                }
+            )
+            cursor += timedelta(days=1)
+        months_payload.append({"month": f"{year}-{month_i:02d}", "days": days})
+
+    span_days = (last_day - first_day).days + 1
+    rest_days = span_days - len(workout_days)
+    streak = await current_streak(db, user.id)
+    return {
+        "months": months_payload,
+        "workout_streak_days": streak,
+        "rest_days": max(0, rest_days),
+    }
 
 
 async def volume_graph(db: AsyncSession, user: User, range_value: str) -> list[dict]:

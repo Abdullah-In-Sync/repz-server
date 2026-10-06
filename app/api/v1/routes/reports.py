@@ -6,6 +6,7 @@ from app.api.v1.deps import CurrentUser, DbDep
 from app.schemas.report import (
     AchievementRead,
     CalendarDay,
+    CalendarDetail,
     DailyReport,
     MuscleDistributionDetail,
     MuscleShare,
@@ -48,6 +49,12 @@ async def calendar(db: DbDep, user: CurrentUser, month: str) -> list[CalendarDay
     except Exception as exc:
         raise HTTPException(status_code=400, detail="month must be YYYY-MM") from exc
     return [CalendarDay(**row) for row in rows]
+
+
+@router.get("/calendar/detail", response_model=CalendarDetail)
+async def calendar_detail(db: DbDep, user: CurrentUser) -> CalendarDetail:
+    payload = await report_service.calendar_detail_report(db, user)
+    return CalendarDetail(**payload)
 
 
 @router.get("/volume-graph", response_model=list[VolumePoint])

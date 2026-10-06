@@ -32,6 +32,29 @@ class CalendarDay(BaseModel):
     total_volume: float = 0
 
 
+class CalendarDayWorkout(BaseModel):
+    id: str
+    name: str
+    exercises: list[str]
+
+
+class CalendarDetailDay(BaseModel):
+    date: date
+    has_workout: bool
+    workouts: list[CalendarDayWorkout]
+
+
+class CalendarDetailMonth(BaseModel):
+    month: str
+    days: list[CalendarDetailDay]
+
+
+class CalendarDetail(BaseModel):
+    months: list[CalendarDetailMonth]
+    workout_streak_days: int
+    rest_days: int
+
+
 class VolumePoint(BaseModel):
     date: date
     volume: float
