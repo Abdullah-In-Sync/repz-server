@@ -10,7 +10,11 @@ from app.models.user import User
 from app.models.workout import WorkoutSession, WorkoutSet
 from app.schemas.workout import SetCreate, SetUpdate, WorkoutCreate, WorkoutUpdate
 from app.services.achievement_engine import evaluate_achievements
-from app.services.pr_service import update_personal_records
+from app.services.pr_service import (
+    clear_pr_links_for_sets,
+    rebuild_personal_records_for_exercises,
+    update_personal_records,
+)
 from app.services.stats_service import recompute_daily_stats
 from app.utils.training import set_volume
 
@@ -171,6 +175,22 @@ async def delete_set(db: AsyncSession, user: User, session: WorkoutSession, set_
     workout_set = next((item for item in session.sets if item.id == set_id), None)
     if not workout_set:
         raise WorkoutValidationError("Set not found")
+    exercise_id = workout_set.exercise_id
+    await clear_pr_links_for_sets(db, [set_id])
     await db.delete(workout_set)
     await db.flush()
+    await rebuild_personal_records_for_exercises(db, user.id, {exercise_id})
     await refresh_session_side_effects(db, user, session)
+
+
+async def delete_workout(db: AsyncSession, user: User, session: WorkoutSession) -> None:
+    day = session.started_at.date()
+    exercise_ids = {item.exercise_id for item in session.sets}
+    set_ids = [item.id for item in session.sets]
+    await clear_pr_links_for_sets(db, set_ids)
+    await db.delete(session)
+    await db.flush()
+    await recompute_daily_stats(db, user.id, day)
+    await rebuild_personal_records_for_exercises(db, user.id, exercise_ids)
+    await evaluate_achievements(db, user.id, prs_broken=[])
+    await db.commit()

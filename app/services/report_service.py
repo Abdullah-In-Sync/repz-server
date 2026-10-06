@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.redis import json_cache_get, json_cache_set
+from app.core.redis import cache_delete, json_cache_get, json_cache_set
 from app.models.achievement import Achievement
 from app.models.exercise import Exercise
 from app.models.metrics import DailyStat
@@ -15,10 +15,25 @@ from app.services.achievement_engine import current_streak
 from app.utils.training import parse_range, set_volume
 
 CACHE_TTL = 300
+# Bump when report rollup semantics or invalidation change (avoids stale Redis entries).
+CACHE_VERSION = "v2"
 
 
 def _cache_key(user_id: str, name: str, extra: str) -> str:
-    return f"reports:{user_id}:{name}:{extra}"
+    return f"reports:{CACHE_VERSION}:{user_id}:{name}:{extra}"
+
+
+async def invalidate_report_caches_for_day(user_id: str, day: date) -> None:
+    iso_year, iso_week, _ = day.isocalendar()
+    week_label = f"{iso_year}-W{iso_week:02d}"
+    week_start, week_end = week_bounds(week_label)
+    month_label = f"{day.year}-{day.month:02d}"
+    month_start, month_end = month_bounds(month_label)
+    await cache_delete(
+        _cache_key(user_id, "daily", day.isoformat()),
+        _cache_key(user_id, f"weekly:{week_label}", f"{week_start}:{week_end}"),
+        _cache_key(user_id, f"monthly:{month_label}", f"{month_start}:{month_end}"),
+    )
 
 
 async def _daily_rows(db: AsyncSession, user_id: str, start: date, end: date) -> list[DailyStat]:
