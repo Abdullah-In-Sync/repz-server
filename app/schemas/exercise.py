@@ -33,7 +33,7 @@ class ExerciseCreateCustom(BaseModel):
     is_unilateral: bool = False
     is_time_based: bool = False
     is_distance_based: bool = False
-    is_load_based: bool = False
+    is_load_based: bool = True
     is_reps_based: bool = True
     description: str | None = None
     recommended_sets: str | None = None

@@ -77,7 +77,10 @@ async def test_me_and_custom_exercise_and_workout(client) -> None:
         json={"name": "Custom Curl", "body_part": "Upper Arms", "target": "Biceps"},
     )
     assert created.status_code == 201
-    exercise_id = created.json()["id"]
+    body = created.json()
+    assert body["is_load_based"] is True
+    assert body["is_reps_based"] is True
+    exercise_id = body["id"]
 
     workout = await ac.post("/api/v1/workouts", json={"name": "Push day"})
     assert workout.status_code == 201
