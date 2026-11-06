@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -19,6 +19,32 @@ async def list_routines(db: AsyncSession, user: User) -> list[Routine]:
         .order_by(Routine.updated_at.desc())
     )
     return list(result.scalars().all())
+
+
+async def list_routines_summary(db: AsyncSession, user: User) -> list[dict]:
+    result = await db.execute(
+        select(
+            Routine.id,
+            Routine.name,
+            Routine.updated_at,
+            func.count(RoutineExercise.id).label("exercise_count"),
+        )
+        .outerjoin(RoutineExercise, RoutineExercise.routine_id == Routine.id)
+        .where(Routine.user_id == user.id)
+        .group_by(Routine.id)
+        .order_by(Routine.updated_at.desc())
+    )
+    rows = []
+    for routine_id, name, updated_at, exercise_count in result.all():
+        rows.append(
+            {
+                "id": routine_id,
+                "name": name,
+                "updated_at": updated_at,
+                "exercise_count": int(exercise_count or 0),
+            }
+        )
+    return rows
 
 
 async def get_routine(db: AsyncSession, user: User, routine_id: str) -> Routine | None:

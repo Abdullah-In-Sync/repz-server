@@ -45,6 +45,15 @@ class RoutineUpdate(BaseModel):
     exercises: list[RoutineExerciseIn] | None = None
 
 
+class RoutineListItem(BaseModel):
+    """Minimal fields for the routines index (no exercise payloads)."""
+
+    id: str
+    name: str
+    exercise_count: int
+    updated_at: datetime
+
+
 class RoutineRead(BaseModel):
     id: str
     user_id: str
