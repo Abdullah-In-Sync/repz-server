@@ -77,7 +77,10 @@ async def test_me_and_custom_exercise_and_workout(client) -> None:
         json={"name": "Custom Curl", "body_part": "Upper Arms", "target": "Biceps"},
     )
     assert created.status_code == 201
-    exercise_id = created.json()["id"]
+    body = created.json()
+    assert body["is_load_based"] is True
+    assert body["is_reps_based"] is True
+    exercise_id = body["id"]
 
     workout = await ac.post("/api/v1/workouts", json={"name": "Push day"})
     assert workout.status_code == 201
@@ -96,6 +99,17 @@ async def test_me_and_custom_exercise_and_workout(client) -> None:
     prs = await ac.get("/api/v1/reports/personal-records")
     assert prs.status_code == 200
     assert len(prs.json()) >= 1
+
+    deleted = await ac.delete(f"/api/v1/workouts/{workout_id}")
+    assert deleted.status_code == 204
+
+    history = await ac.get("/api/v1/workouts")
+    assert history.status_code == 200
+    assert history.json()["total"] == 0
+
+    prs_after = await ac.get("/api/v1/reports/personal-records")
+    assert prs_after.status_code == 200
+    assert len(prs_after.json()) == 0
 
     metric = await ac.post(
         "/api/v1/body-metrics",

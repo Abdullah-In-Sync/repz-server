@@ -11,6 +11,7 @@ from app.services.workout_service import (
     add_set,
     create_workout,
     delete_set,
+    delete_workout,
     get_workout,
     list_workouts,
     update_set,
@@ -59,6 +60,15 @@ async def patch_workout(
     if not session:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workout not found")
     return await update_workout(db, user, session, payload)
+
+
+@router.delete("/{workout_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_workout(workout_id: str, db: DbDep, user: CurrentUser) -> None:
+    session = await get_workout(db, user, workout_id)
+    if not session:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workout not found")
+    logger.info("workout_deleted", workout_id=workout_id, user_id=user.id)
+    await delete_workout(db, user, session)
 
 
 @router.post("/{workout_id}/sets", response_model=SetRead, status_code=status.HTTP_201_CREATED)

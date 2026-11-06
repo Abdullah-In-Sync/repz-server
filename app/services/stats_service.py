@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.exercise import Exercise
 from app.models.metrics import DailyStat
 from app.models.workout import WorkoutSession, WorkoutSet
+from app.services.report_service import invalidate_report_caches_for_day
 from app.utils.training import set_volume
 
 
@@ -51,4 +52,5 @@ async def recompute_daily_stats(db: AsyncSession, user_id: str, day: date) -> Da
     stat.duration_seconds = duration_seconds
     stat.calories_est = round(calories_est, 2)
     await db.flush()
+    await invalidate_report_caches_for_day(user_id, day)
     return stat

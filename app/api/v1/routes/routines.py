@@ -2,7 +2,14 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.api.v1.deps import CurrentUser, DbDep
 from app.core.logging import get_logger
-from app.schemas.routine import LastLoggedSet, RoutineCreate, RoutineExerciseRead, RoutineRead, RoutineUpdate
+from app.schemas.routine import (
+    LastLoggedSet,
+    RoutineCreate,
+    RoutineExerciseRead,
+    RoutineListItem,
+    RoutineRead,
+    RoutineUpdate,
+)
 from app.services import routine_service
 
 router = APIRouter(prefix="/routines", tags=["routines"])
@@ -43,6 +50,12 @@ def _to_read(routine) -> RoutineRead:
 async def list_routines(db: DbDep, user: CurrentUser) -> list[RoutineRead]:
     routines = await routine_service.list_routines(db, user)
     return [_to_read(item) for item in routines]
+
+
+@router.get("/summary", response_model=list[RoutineListItem])
+async def list_routines_summary(db: DbDep, user: CurrentUser) -> list[RoutineListItem]:
+    rows = await routine_service.list_routines_summary(db, user)
+    return [RoutineListItem(**row) for row in rows]
 
 
 @router.post("", response_model=RoutineRead, status_code=status.HTTP_201_CREATED)
