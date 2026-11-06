@@ -6,6 +6,47 @@ Production REST API for the Repz workout logging and analytics app.
 
 Python 3.12, FastAPI, **PostgreSQL 16**, SQLAlchemy 2 (async), Alembic, Firebase Admin, Redis, APScheduler, Docker.
 
+## Running locally
+
+### Prerequisites
+
+1. **Python 3.12** on your PATH.
+2. **Environment file:** `cp .env.example .env` and adjust values if needed.
+3. **Firebase Admin credentials:** place the service-account JSON at the path set by `FIREBASE_CREDENTIALS_PATH` in `.env` (or set `FIREBASE_CREDENTIALS_JSON`). The API will not start without valid Firebase credentials in non-test mode.
+4. **PostgreSQL 16** and **Redis** reachable at the URLs in `.env` (defaults: `localhost:5432` and `localhost:6379`).
+
+On startup the API runs Alembic migrations, initializes Firebase, and starts the job scheduler.
+
+### Option 1 — Docker (easiest)
+
+Runs Postgres, Redis, and the API together:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Open **http://localhost:8000/docs** when the stack is healthy. See [PostgreSQL setup](#postgresql-setup) (Option A) for details.
+
+### Option 2 — API on the host
+
+Use this when you want `--reload` and a local virtualenv. You still need Postgres and Redis — install them yourself ([PostgreSQL setup](#postgresql-setup) Option B) or start only the data services:
+
+```bash
+docker compose up -d postgres redis
+```
+
+Then:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Open **http://localhost:8000/docs**. Optional: seed the exercise catalog with `python scripts/seed_exercises.py` (see [Exercise catalog](#exercise-catalog-local-json--db)).
+
 ## PostgreSQL setup
 
 ### Option A — Docker (recommended)

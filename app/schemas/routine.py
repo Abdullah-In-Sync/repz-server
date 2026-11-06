@@ -7,6 +7,8 @@ class RoutineSetTarget(BaseModel):
     reps_range: str | None = None
     weight_kg: float | None = Field(default=None, ge=0, le=500)
     rest_seconds: int | None = Field(default=None, ge=0, le=600)
+    duration_seconds: int | None = Field(default=None, ge=0, le=86400)
+    distance_km: float | None = Field(default=None, ge=0, le=500)
 
 
 class RoutineExerciseIn(BaseModel):
